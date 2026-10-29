@@ -1,4 +1,4 @@
-//
+﻿//
 // AniSwitch: 播放任意 HTTP 地址（OpenList 直链）并加载合并弹幕
 //
 
@@ -14,21 +14,13 @@
 #include <nlohmann/json.hpp>
 
 #include "activity/aniswitch_player_activity.hpp"
+#include "utils/aniswitch_util.hpp"
 #include "view/video_view.hpp"
 #include "view/mpv_core.hpp"
 #include "view/danmaku_core.hpp"
 
 using namespace brls::literals;
 
-namespace {
-void aniswitchLog(const std::string& text) {
-    FILE* fp = fopen("sdmc:/aniswitch.log", "a");
-    if (!fp) return;
-    fputs(text.c_str(), fp);
-    fputc('\n', fp);
-    fclose(fp);
-}
-}  // namespace
 
 AniSwitchPlayerActivity::AniSwitchPlayerActivity(std::vector<AniSwitchEpisode> list, size_t idx)
     : episodes(std::move(list)), index(idx) {

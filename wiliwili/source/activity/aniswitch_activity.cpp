@@ -15,20 +15,13 @@
 #include <nlohmann/json.hpp>
 
 #include "activity/aniswitch_activity.hpp"
+#include "utils/aniswitch_util.hpp"
 #include "activity/aniswitch_player_activity.hpp"
 #include "view/recycling_grid.hpp"
 
 using namespace brls::literals;
 
 namespace {
-// 崩溃排查用：所有关键步骤都写到 SD 卡，便于无 crash report 时定位
-void aniswitchLog(const std::string& text) {
-    FILE* fp = fopen("sdmc:/aniswitch.log", "a");
-    if (!fp) return;
-    fputs(text.c_str(), fp);
-    fputc('\n', fp);
-    fclose(fp);
-}
 
 brls::View* buildFallbackView(const std::string& message) {
     auto* box = new brls::Box(brls::Axis::COLUMN);
