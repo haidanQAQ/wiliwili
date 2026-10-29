@@ -44,6 +44,9 @@ public:
     // 开启 DLNA
     static void openDLNA();
 
+    // 开启 AniSwitch（OpenList/WebDAV + 巴哈弹幕）
+    static void openAniSwitch();
+
     // 开启动态
     static void openActivity(const std::string& id);
 };

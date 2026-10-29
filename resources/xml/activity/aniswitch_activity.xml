@@ -1,0 +1,31 @@
+<brls:AppletFrame
+        iconInterpolation="linear"
+        headerHidden="false"
+        footerHidden="false">
+    <brls:Box
+            axis="column"
+            grow="1">
+        <brls:Label
+                id="aniswitch/status"
+                fontSize="20"
+                marginLeft="24"
+                marginTop="8"
+                marginBottom="6"
+                text=""/>
+
+        <RecyclingGrid
+                id="aniswitch/grid"
+                paddingLeft="24"
+                paddingRight="24"
+                itemHeight="80"
+                grow="1"
+                preFetchLine="2"
+                spanCount="1"
+                wireframe="false"/>
+
+        <ButtonClose
+                positionType="absolute"
+                positionTop="6"
+                positionRight="30"/>
+    </brls:Box>
+</brls:AppletFrame>
