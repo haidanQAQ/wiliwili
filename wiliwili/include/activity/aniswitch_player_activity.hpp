@@ -27,6 +27,7 @@ private:
 
     std::vector<AniSwitchEpisode> episodes;
     size_t index = 0;
+    bool mpvSubscribed = false;
     MPVEvent::Subscription mpvEventSubscribeID;
 
     void playCurrent();

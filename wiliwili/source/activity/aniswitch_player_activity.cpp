@@ -25,7 +25,7 @@ AniSwitchPlayerActivity::AniSwitchPlayerActivity(std::vector<AniSwitchEpisode> l
 }
 
 AniSwitchPlayerActivity::~AniSwitchPlayerActivity() {
-    if (mpvEventSubscribeID) MPV_E->unsubscribe(mpvEventSubscribeID);
+    if (this->mpvSubscribed) MPV_E->unsubscribe(this->mpvEventSubscribeID);
 }
 
 void AniSwitchPlayerActivity::onContentAvailable() {
@@ -36,6 +36,7 @@ void AniSwitchPlayerActivity::onContentAvailable() {
             brls::sync([this]() { this->playNext(); });
         }
     });
+    this->mpvSubscribed = true;
 
     this->playCurrent();
     brls::sync([this]() { brls::Application::giveFocus(this->video); });
