@@ -1,7 +1,8 @@
 name: AniSwitch Switch Build
 
 # 仅用于 fork 的快速构建验证，不参与上游发布流程。
-# 手动触发，或推送到 feature/aniswitch-webdav 时构建。
+# 只在手动触发时构建：本地 WSL + devkitPro 工具链是主要构建方式，
+# 推送到本分支只做代码备份，不再消耗 Actions 额度。
 on:
   workflow_dispatch:
     inputs:
@@ -10,9 +11,6 @@ on:
         type: choice
         options: [opengl, deko3d]
         default: opengl
-  push:
-    branches:
-      - feature/aniswitch-webdav
 
 jobs:
   build-switch:

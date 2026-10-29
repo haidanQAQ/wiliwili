@@ -1,7 +1,10 @@
 name: Build wiliwili
 
 on:
+  # fork 中只在上游默认分支 `yoga` 变化时构建；日常备份推送到
+  # feature/aniswitch-webdav 不再触发这套 10+ 平台的矩阵构建。
   push:
+    branches: ["yoga"]
   pull_request:
   workflow_dispatch:
     inputs:
