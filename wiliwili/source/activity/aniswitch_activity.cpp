@@ -8,7 +8,7 @@
 #include <borealis/core/logger.hpp>
 #include <borealis/core/application.hpp>
 #include <borealis/core/view.hpp>
-#include <borealis/views/box.hpp>
+#include <borealis/core/box.hpp>
 #include <borealis/views/label.hpp>
 
 #include <cpr/cpr.h>

@@ -1,16 +1,23 @@
-<brls:AppletFrame
+﻿<brls:AppletFrame
         iconInterpolation="linear"
-        headerHidden="false"
+        headerHidden="true"
         footerHidden="false">
     <brls:Box
             axis="column"
             grow="1">
         <brls:Label
-                id="aniswitch/status"
-                fontSize="20"
+                fontSize="26"
                 marginLeft="24"
-                marginTop="8"
-                marginBottom="6"
+                marginTop="16"
+                marginBottom="10"
+                text="AniSwitch 网络播放"/>
+
+        <brls:Label
+                id="aniswitch/status"
+                fontSize="18"
+                marginLeft="24"
+                marginRight="24"
+                marginBottom="8"
                 text=""/>
 
         <RecyclingGrid
@@ -25,7 +32,7 @@
 
         <ButtonClose
                 positionType="absolute"
-                positionTop="6"
-                positionRight="30"/>
+                positionTop="10"
+                positionRight="10"/>
     </brls:Box>
 </brls:AppletFrame>
