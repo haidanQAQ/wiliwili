@@ -1,0 +1,42 @@
+name: AniSwitch Switch Build
+
+# 仅用于 fork 的快速构建验证，不参与上游发布流程。
+# 手动触发，或推送到 feature/aniswitch-webdav 时构建。
+on:
+  workflow_dispatch:
+    inputs:
+      driver:
+        description: "Rendering driver"
+        type: choice
+        options: [opengl, deko3d]
+        default: opengl
+  push:
+    branches:
+      - feature/aniswitch-webdav
+
+jobs:
+  build-switch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Build NRO
+        run: |
+          DRIVER="${{ github.event.inputs.driver || 'opengl' }}"
+          if [ "$DRIVER" = "deko3d" ]; then
+            SCRIPT=/data/scripts/build_switch_deko3d.sh
+          else
+            SCRIPT=/data/scripts/build_switch.sh
+          fi
+          docker run --rm -v "$(pwd):/data" devkitpro/devkita64:20251117 bash -c "$SCRIPT"
+
+      - name: Upload NRO
+        uses: actions/upload-artifact@v6
+        with:
+          name: wiliwili-nro-${{ github.event.inputs.driver || 'opengl' }}
+          path: cmake-build-switch/wiliwili.nro
+          if-no-files-found: error
