@@ -1,7 +1,8 @@
-﻿//
+//
 // AniSwitch: OpenList/WebDAV 视频列表（数据来自 AniSwitch Gateway）
 //
 #include <cstdio>
+#include <string>
 #include <thread>
 
 #include <borealis/core/thread.hpp>
@@ -36,6 +37,17 @@ brls::View* buildFallbackView(const std::string& message) {
     box->addView(label);
     return box;
 }
+
+// 一次简单的连通性探测，用于定位「连不上」是哪一环
+std::string probeUrl(const std::string& url) {
+    try {
+        cpr::Response r = cpr::Get(cpr::Url{url}, cpr::Timeout{8000},
+                                   cpr::Header{{"User-Agent", "wiliwili-aniswitch"}});
+        return url + " -> " + std::to_string(r.status_code) + " " + r.error.message;
+    } catch (const std::exception& e) {
+        return url + " -> exception " + e.what();
+    } catch (...) { return url + " -> exception unknown"; }
+}
 }  // namespace
 
 AniSwitchCell::AniSwitchCell() {
@@ -62,7 +74,10 @@ void AniSwitchCell::cacheForReuse() {}
 RecyclingGridItem* AniSwitchDataSource::cellForRow(RecyclingGrid* recycler, size_t index) {
     auto* cell = dynamic_cast<AniSwitchCell*>(recycler->dequeueReusableCell("AniSwitchCell"));
 
-    if (!cell) return nullptr;
+    if (!cell) {
+        aniswitchLog("cellForRow: dequeue returned null or wrong type, index=" + std::to_string(index));
+        return nullptr;
+    }
     if (index >= this->episodes.size()) return cell;
 
     const auto& e = this->episodes[index];
@@ -74,7 +89,7 @@ RecyclingGridItem* AniSwitchDataSource::cellForRow(RecyclingGrid* recycler, size
 
 void AniSwitchDataSource::onItemSelected(RecyclingGrid* recycler, size_t index) {
     if (index >= this->episodes.size()) return;
-    aniswitchLog("select ep index " + std::to_string(index));
+    aniswitchLog("select ep index " + std::to_string(index) + " ep=" + std::to_string(this->episodes[index].ep));
     auto* activity = new AniSwitchPlayerActivity(this->episodes, index);
     brls::Application::pushActivity(activity, brls::TransitionAnimation::NONE);
 }
@@ -82,7 +97,7 @@ void AniSwitchDataSource::onItemSelected(RecyclingGrid* recycler, size_t index) 
 AniSwitchActivity::AniSwitchActivity() { aniswitchLog("== AniSwitchActivity ctor"); }
 
 brls::View* AniSwitchActivity::createContentView() {
-    aniswitchLog("== onCreateContentView");
+    aniswitchLog("== createContentView");
     try {
         brls::View* view = brls::View::createFromXMLResource("activity/aniswitch_activity.xml");
         aniswitchLog(view ? "xml ok" : "xml returned null");
@@ -106,11 +121,15 @@ void AniSwitchActivity::onContentAvailable() {
     aniswitchLog(std::string("bind status=") + (this->status ? "ok" : "null") + " grid=" +
                  (this->grid ? "ok" : "null"));
 
-    this->registerAction("返回", brls::BUTTON_B,
-                         [](brls::View*) {
-                             brls::Application::popActivity();
-                             return true;
-                         });
+    this->registerAction("返回", brls::BUTTON_B, [](brls::View*) {
+        brls::Application::popActivity();
+        return true;
+    });
+    this->registerAction("刷新", brls::BUTTON_Y, [this](brls::View*) {
+        aniswitchLog("action: refresh");
+        this->loadEpisodes();
+        return true;
+    });
 
     if (!this->grid) {
         this->showMessage("列表组件 aniswitch/grid 未找到");
@@ -137,9 +156,11 @@ void AniSwitchActivity::showMessage(const std::string& text) {
 }
 
 void AniSwitchActivity::loadEpisodes() {
+    aniswitchLog("loadEpisodes: spawn thread");
     std::thread([this]() {
-        const std::string url = std::string(ANISWITCH_GW_DEFAULT) + "/api/episodes";
-        aniswitchLog("GET " + url);
+        const std::string base = ANISWITCH_GW_DEFAULT;
+        const std::string url  = base + "/api/episodes";
+        aniswitchLog("thread: GET " + url);
 
         std::vector<AniSwitchEpisode> list;
         std::string error;
@@ -147,6 +168,8 @@ void AniSwitchActivity::loadEpisodes() {
         try {
             cpr::Response r = cpr::Get(cpr::Url{url}, cpr::Timeout{30000},
                                        cpr::Header{{"User-Agent", "wiliwili-aniswitch"}});
+            aniswitchLog("thread: status=" + std::to_string(r.status_code) + " err=" + r.error.message +
+                         " bytes=" + std::to_string(r.text.size()));
 
             if (r.status_code != 200) {
                 error = "Gateway 返回 " + std::to_string(r.status_code);
@@ -170,19 +193,40 @@ void AniSwitchActivity::loadEpisodes() {
             error = std::string("请求失败: ") + e.what();
         } catch (...) { error = "请求失败: unknown"; }
 
-        aniswitchLog("loaded " + std::to_string(list.size()) + " eps, error=" + error);
+        aniswitchLog("thread: loaded " + std::to_string(list.size()) + " eps, error=" + error);
 
+        if (!error.empty()) {
+            // 连不上时做两次对照探测，帮助我们判断是端口问题还是整机没网
+            std::string p1 = probeUrl(base + "/health");
+            aniswitchLog("probe1: " + p1);
+            std::string p2 = probeUrl("http://192.168.31.251:5244/");
+            aniswitchLog("probe2: " + p2);
+            error += "\n" + p1 + "\n" + p2;
+        }
+
+        aniswitchLog("thread: posting to main loop");
         brls::sync([this, list, error]() {
+            aniswitchLog("sync enter, err_empty=" + std::to_string(error.empty()) +
+                         " list=" + std::to_string(list.size()));
+            try {
             if (!error.empty()) {
                 this->showMessage(error);
+                aniswitchLog("sync: setError next");
                 if (this->grid) this->grid->setError(error);
+                aniswitchLog("sync: setError done");
                 return;
             }
             this->showMessage("共 " + std::to_string(list.size()) + " 集");
             if (!this->grid) return;
+            aniswitchLog("sync: setDataSource next");
             this->grid->setDataSource(new AniSwitchDataSource(list));
+            aniswitchLog("sync: notifyDataChanged next");
             this->grid->notifyDataChanged();
-            aniswitchLog("grid data set");
+            aniswitchLog("sync: grid data set");
+            } catch (const std::exception& e) {
+                aniswitchLog(std::string("sync exception: ") + e.what());
+            } catch (...) { aniswitchLog("sync exception: unknown"); }
         });
+        aniswitchLog("thread: posted");
     }).detach();
 }
