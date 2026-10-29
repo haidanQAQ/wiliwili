@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include <string>
 #include <vector>
@@ -47,7 +47,7 @@ class AniSwitchActivity : public brls::Activity {
 public:
     AniSwitchActivity();
 
-    brls::View* onCreateContentView() override;
+    brls::View* createContentView() override;
 
     void onContentAvailable() override;
 

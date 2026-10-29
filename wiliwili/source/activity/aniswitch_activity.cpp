@@ -1,4 +1,4 @@
-//
+﻿//
 // AniSwitch: OpenList/WebDAV 视频列表（数据来自 AniSwitch Gateway）
 //
 #include <cstdio>
@@ -88,7 +88,7 @@ void AniSwitchDataSource::onItemSelected(RecyclingGrid* recycler, size_t index) 
 
 AniSwitchActivity::AniSwitchActivity() { aniswitchLog("== AniSwitchActivity ctor"); }
 
-brls::View* AniSwitchActivity::onCreateContentView() {
+brls::View* AniSwitchActivity::createContentView() {
     aniswitchLog("== onCreateContentView");
     try {
         brls::View* view = brls::View::createFromXMLResource("activity/aniswitch_activity.xml");
