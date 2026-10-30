@@ -44,3 +44,31 @@ This fork and its derivative work remain under the upstream **GNU General Public
 - `main` / `yoga` 等上游分支保持与上游一致，仅用于同步
 - AniSwitch 开发在独立分支进行，通过 Pull Request 或独立分发的方式提供
 - 本 fork 不代表上游项目立场
+
+## 6. 运行依赖与数据来源 / Runtime dependencies and data sources
+
+**本仓库不包含、不打包、不分发任何弹幕数据，也不内置任何弹幕服务。**
+
+AniSwitch 的弹幕能力完全建立在「使用者自建」的组件上：
+
+| 组件 | 来源 | 本仓库提供什么 |
+|---|---|---|
+| 弹幕聚合库 | 第三方项目 [danmu_api](https://github.com/huangxd-/danmu_api)（Docker 镜像 `logvar/danmu-api`） | 只提供调用方代码，不分发其数据 |
+| `aniswitch-gateway` | 本分支新增（GPLv3 授权） | 源码（`server.js`）与示例配置，不含任何抓取结果 |
+| 视频文件 | 使用者自己的 WebDAV / OpenList 存储 | 无 |
+
+因此运行本客户端前，使用者必须自行部署弹幕库与网关（见 `aniswitch-gateway/README.md` 与 `ANISWITCH.md`）。
+仓库内的 `config.example.json` 只含占位符，不含任何账号、口令、API 令牌或弹幕内容。
+
+This repository does **not** contain, bundle, or distribute any danmaku (bullet-comment) data, and does not host any danmaku service.
+All danmaku capability depends on components the user deploys themselves: the third-party `danmu_api` aggregator and the
+`aniswitch-gateway` shipped (as source) in this branch. The example config contains placeholders only — no credentials, tokens,
+or danmaku payloads.
+
+## 7. 与上游 wiliwili 的关系（补充）/ Relation to upstream (details)
+
+- 源文件改自 `xfangfang/wiliwili`（基线 v1.6.0，commit `88e5876`）。本分支在上游之上**新增** AniSwitch 相关文件，
+  并对少量入口文件（`main.cpp`、`main_activity.*`、`setting_activity.*`、`CMakeLists.txt`、若干 XML）做最小改动，
+  改动清单见 `ANISWITCH.md` 的「与上游的差异」。
+- 上游的播放链路（mpv + ffmpeg + Tegra NVDEC 硬解）、弹幕渲染引擎、libass、borealis UI 全部原样复用，未做修改。
+- 若上游后续更新，本分支改动范围足以逐个 rebase。

@@ -3,6 +3,11 @@
 //
 
 #include <borealis/core/application.hpp>
+#include <borealis/core/thread.hpp>
+#include <borealis/views/dialog.hpp>
+#include <cstdlib>
+#include <exception>
+#include "utils/aniswitch_util.hpp"
 #include "activity/player_activity.hpp"
 #include "activity/live_player_activity.hpp"
 #include "activity/hint_activity.hpp"
@@ -14,6 +19,10 @@
 #include "activity/gallery_activity.hpp"
 #include "activity/dlna_activity.hpp"
 #include "activity/aniswitch_activity.hpp"
+#include "activity/aniswitch_list_activity.hpp"
+#include "activity/aniswitch_browse_activity.hpp"
+#include "activity/aniswitch_sources.hpp"
+#include "activity/aniswitch_player_activity.hpp"
 #include "activity/dynamic_activity.hpp"
 #include "fragment/mine_collection_video_list.hpp"
 #include "fragment/inbox_view.hpp"
@@ -121,10 +130,109 @@ void Intent::openDLNA() {
 }
 
 void Intent::openAniSwitch() {
-    auto activity = new AniSwitchActivity();
-    brls::Application::pushActivity(activity, brls::TransitionAnimation::NONE);
+    aniswitchCleanupBackups();
+    aniswitchLog("openAniSwitch: begin");
+    std::set_terminate([]() {
+        aniswitchLog("!!! std::terminate called");
+        std::exception_ptr ep = std::current_exception();
+        if (!ep) {
+            aniswitchLog("!!! terminate: no current exception");
+        } else {
+            try {
+                std::rethrow_exception(ep);
+            } catch (const std::exception& ex) {
+                aniswitchLog(std::string("!!! terminate what(): ") + ex.what());
+            } catch (...) {
+                aniswitchLog("!!! terminate: non-std exception");
+            }
+        }
+        fflush(nullptr);
+        std::abort();
+    });
+    try {
+        auto activity = new AniSwitchActivity();
+        aniswitchLog("openAniSwitch: activity created");
+        brls::Application::pushActivity(activity, brls::TransitionAnimation::NONE);
+        aniswitchLog("openAniSwitch: pushActivity returned normally");
+    } catch (const std::exception& e) {
+        aniswitchLog(std::string("openAniSwitch: push exception: ") + e.what());
+    } catch (...) {
+        aniswitchLog("openAniSwitch: push exception: unknown");
+    }
+    aniswitchLog("openAniSwitch: end");
 }
 
+// pushActivity 内部会先 blockInputs() 再 createContentView()，一旦后者抛异常
+// inputs 就永远锁死（画面还在、手柄全失灵）。这里统一兜底：解锁 + 收拾现场 + 弹提示。
+static void aniswitchPushFailed(const std::string& where, const std::string& what) {
+    aniswitchLog("pushFailed: " + where + " : " + what);
+    brls::Application::unblockInputs();
+    brls::sync([where, what]() {
+        brls::Dialog* tip =
+            new brls::Dialog("无法打开界面\n" + where + "\n" + (what.empty() ? "未知错误" : what));
+        tip->addButton("确定", []() {});
+        tip->open();
+    });
+}
+
+void Intent::openAniSwitchList() {
+    aniswitchLog("openAniSwitchList: begin");
+    AniSwitchListActivity* activity = nullptr;
+    bool pushed                     = false;
+    try {
+        activity = new AniSwitchListActivity();
+        brls::Application::pushActivity(activity, brls::TransitionAnimation::NONE);
+        pushed = true;
+        aniswitchLog("openAniSwitchList: pushed");
+    } catch (const std::exception& e) {
+        if (!pushed) delete activity;
+        aniswitchPushFailed("openAniSwitchList", e.what());
+    } catch (...) {
+        if (!pushed) delete activity;
+        aniswitchPushFailed("openAniSwitchList", "unknown");
+    }
+}
+
+void Intent::openAniSwitchPlayer(const std::vector<AniSwitchEpisode>& episodes, size_t index,
+                                 const std::string& dirPath) {
+    aniswitchLog("openAniSwitchPlayer: index=" + std::to_string(index) + " total=" +
+                 std::to_string(episodes.size()) + " dir=" + dirPath);
+    AniSwitchPlayerActivity* activity = nullptr;
+    bool pushed                       = false;
+    try {
+        activity = new AniSwitchPlayerActivity(episodes, index, dirPath);
+        aniswitchLog("openAniSwitchPlayer: activity created");
+        brls::Application::pushActivity(activity, brls::TransitionAnimation::NONE);
+        pushed = true;
+        aniswitchLog("openAniSwitchPlayer: pushed");
+    } catch (const std::exception& e) {
+        if (!pushed) delete activity;
+        aniswitchPushFailed("openAniSwitchPlayer", e.what());
+    } catch (...) {
+        if (!pushed) delete activity;
+        aniswitchPushFailed("openAniSwitchPlayer", "unknown");
+    }
+}
+
+
+void Intent::openAniSwitchBrowse(const AniSwitchSource& source, const std::string& path) {
+    aniswitchLog("openAniSwitchBrowse: " + source.name + " path=" + path);
+    AniSwitchBrowseActivity* activity = nullptr;
+    bool pushed                       = false;
+    try {
+        activity = new AniSwitchBrowseActivity(source, path);
+        aniswitchLog("openAniSwitchBrowse: activity created");
+        brls::Application::pushActivity(activity, brls::TransitionAnimation::NONE);
+        pushed = true;
+        aniswitchLog("openAniSwitchBrowse: pushed");
+    } catch (const std::exception& e) {
+        if (!pushed) delete activity;
+        aniswitchPushFailed("openAniSwitchBrowse", e.what());
+    } catch (...) {
+        if (!pushed) delete activity;
+        aniswitchPushFailed("openAniSwitchBrowse", "unknown");
+    }
+}
 void Intent::openActivity(const std::string& id) {
     auto activity = new DynamicActivity(id);
     brls::Application::pushActivity(activity, brls::TransitionAnimation::NONE);

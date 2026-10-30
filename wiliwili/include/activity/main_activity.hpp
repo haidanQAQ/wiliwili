@@ -32,7 +32,5 @@ public:
     ~MainActivity() override;
 
 private:
-    BRLS_BIND(CustomButton, settingBtn, "main/setting");
-    BRLS_BIND(CustomButton, inboxBtn, "main/inbox");
-    BRLS_BIND(AutoTabFrame, tabFrame, "main/tabFrame");
+    BRLS_BIND(CustomButton, aniswitchBtn, "main/aniswitch");
 };

@@ -1,0 +1,30 @@
+{
+  "port": 9333,
+  "title": "示例番剧",
+  "cacheDir": "/cache",
+  "cacheTtlEpisodes": 300,
+  "openlist": {
+    "base": "http://192.168.1.10:5244",
+    "user": "your-openlist-user",
+    "pass": "your-openlist-password",
+    "dir": "/夸克/来自：分享/示例番剧 全集4K日语中字"
+  },
+  "danmu": {
+    "base": "http://192.168.1.10:9321/87654321"
+  },
+  "animes": [
+    {
+      "dir": "示例番剧 全集4K日语中字",
+      "title": "示例番剧",
+      "note": "dir 会与 WebDAV 目录名做片段包含匹配；命中多条时取最长的那条",
+      "rules": [
+        { "name": "bahamut", "animeId": "16844", "from": 1, "to": 220, "offset": 0 },
+        { "name": "youku", "animeId": "1098", "from": 1, "offset": 0 }
+      ]
+    }
+  ],
+  "sources": [
+    { "name": "bahamut", "animeId": "16844", "from": 1, "to": 220, "offset": 0 },
+    { "name": "youku", "animeId": "1098", "from": 1, "offset": 0 }
+  ]
+}

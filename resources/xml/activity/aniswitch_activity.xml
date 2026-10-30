@@ -1,38 +1,27 @@
-﻿<brls:AppletFrame
-        iconInterpolation="linear"
-        headerHidden="true"
-        footerHidden="false">
-    <brls:Box
-            axis="column"
-            grow="1">
-        <brls:Label
-                fontSize="26"
-                marginLeft="24"
-                marginTop="16"
-                marginBottom="10"
-                text="AniSwitch 网络播放"/>
-
-        <brls:Label
-                id="aniswitch/status"
-                fontSize="18"
-                marginLeft="24"
-                marginRight="24"
-                marginBottom="8"
-                text=""/>
-
-        <RecyclingGrid
-                id="aniswitch/grid"
-                paddingLeft="24"
-                paddingRight="24"
-                itemHeight="80"
-                grow="1"
-                preFetchLine="2"
-                spanCount="1"
-                wireframe="false"/>
-
-        <ButtonClose
-                positionType="absolute"
-                positionTop="10"
-                positionRight="10"/>
+<?xml version="1.0" encoding="utf-8"?>
+<brls:AppletFrame headerHidden="true" footerHidden="false">
+    <brls:Box width="100%" height="100%" axis="column">
+        <brls:Label width="100%"
+                    marginTop="18"
+                    marginBottom="2"
+                    marginLeft="24"
+                    fontSize="32"
+                    text="AniSwitch"/>
+        <brls:Label id="aniswitch/status"
+                    width="100%"
+                    marginTop="4"
+                    marginBottom="12"
+                    marginLeft="24"
+                    fontSize="22"
+                    text="正在连接 AniSwitch Gateway ..."/>
+        <RecyclingGrid id="aniswitch/grid"
+                       grow="1"
+                       itemHeight="88"
+                       spanCount="3"
+                       paddingLeft="20"
+                       paddingRight="20"
+                       paddingTop="8"
+                       preFetchLine="1"
+                       wireframe="false"/>
     </brls:Box>
 </brls:AppletFrame>

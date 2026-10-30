@@ -4,6 +4,10 @@
 
 #pragma once
 #include <string>
+#include <vector>
+
+struct AniSwitchEpisode;
+struct AniSwitchSource;
 
 class Intent {
 public:
@@ -47,6 +51,15 @@ public:
     // 开启 AniSwitch（OpenList/WebDAV + 巴哈弹幕）
     static void openAniSwitch();
 
+    // 进入内置网关的剧集列表
+    static void openAniSwitchList();
+
+    // 播放 AniSwitch 的某一集（列表来自 AniSwitch Gateway）
+    static void openAniSwitchPlayer(const std::vector<AniSwitchEpisode>& episodes, size_t index,
+                                    const std::string& dirPath = std::string());
+
+    // 浏览某个 WebDAV 源的目录（path 为空表示从源地址本身开始）
+    static void openAniSwitchBrowse(const AniSwitchSource& source, const std::string& path);
     // 开启动态
     static void openActivity(const std::string& id);
 };

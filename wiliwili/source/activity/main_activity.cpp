@@ -14,96 +14,44 @@
     limitations under the License.
 */
 
+#include <borealis/core/application.hpp>
 #include <borealis/core/touch/tap_gesture.hpp>
 
 #include "activity/main_activity.hpp"
 #include "utils/activity_helper.hpp"
 #include "utils/dialog_helper.hpp"
 #include "view/custom_button.hpp"
-#include "view/auto_tab_frame.hpp"
 #include "view/svg_image.hpp"
 
 MainActivity::~MainActivity() { brls::Logger::debug("del MainActivity"); }
 
 void MainActivity::onContentAvailable() {
+    // 主页只保留 AniSwitch 一个入口；wiliwili 的收件箱/设置占位按钮已移除。
+    // 退出应用改用 HOME 键的默认行为（borealis 的全局退出动作）。
     this->registerAction(
-        "Settings", brls::ControllerButton::BUTTON_BACK,
+        "退出", brls::ControllerButton::BUTTON_B,
         [](brls::View* view) -> bool {
-            Intent::openSetting();
+            brls::Application::quit();
             return true;
         },
         true);
 
-    this->registerAction(
-        "Settings", brls::ControllerButton::BUTTON_START,
-        [](brls::View* view) -> bool {
-            Intent::openSetting();
-            return true;
-        },
-        true);
-
-    this->settingBtn->registerClickAction([](brls::View* view) -> bool {
-        Intent::openSetting();
+    this->aniswitchBtn->registerClickAction([](brls::View* view) -> bool {
+        Intent::openAniSwitch();
         return true;
     });
 
-    this->settingBtn->getFocusEvent()->subscribe([this](bool value) {
-        SVGImage* image = dynamic_cast<SVGImage*>(this->settingBtn->getChildren()[0]);
+    this->aniswitchBtn->getFocusEvent()->subscribe([this](bool value) {
+        SVGImage* image = dynamic_cast<SVGImage*>(this->aniswitchBtn->getChildren()[0]);
         if (!image) return;
         if (value) {
-            image->setImageFromSVGRes("svg/ico-setting-activate.svg");
+            image->setImageFromSVGRes("svg/ico-aniswitch-activate.svg");
         } else {
-            image->setImageFromSVGRes("svg/ico-setting.svg");
+            image->setImageFromSVGRes("svg/ico-aniswitch.svg");
         }
     });
 
-    this->inboxBtn->setCustomNavigation([this](brls::FocusDirection direction) {
-        if (tabFrame->getSideBarPosition() == AutoTabBarPosition::LEFT) {
-            if (direction == brls::FocusDirection::RIGHT) {
-                return (brls::View*)this->tabFrame->getActiveTab();
-            } else if (direction == brls::FocusDirection::UP) {
-                return (brls::View*)this->tabFrame->getSidebar();
-            }
-        } else if (tabFrame->getSideBarPosition() == AutoTabBarPosition::TOP) {
-            if (direction == brls::FocusDirection::DOWN) {
-                return (brls::View*)this->tabFrame->getActiveTab();
-            } else if (direction == brls::FocusDirection::LEFT) {
-                return (brls::View*)this->tabFrame->getSidebar();
-            }
-        }
-        return (brls::View*)nullptr;
-    });
-    this->settingBtn->setCustomNavigation([this](brls::FocusDirection direction) {
-        if (tabFrame->getSideBarPosition() == AutoTabBarPosition::LEFT) {
-            if (direction == brls::FocusDirection::RIGHT) {
-                return (brls::View*)this->tabFrame->getActiveTab();
-            } else if (direction == brls::FocusDirection::UP) {
-                return (brls::View*)this->inboxBtn;
-            }
-        } else if (tabFrame->getSideBarPosition() == AutoTabBarPosition::TOP) {
-            if (direction == brls::FocusDirection::DOWN) {
-                return (brls::View*)this->tabFrame->getActiveTab();
-            } else if (direction == brls::FocusDirection::LEFT) {
-                return (brls::View*)this->inboxBtn;
-            }
-        }
-        return (brls::View*)nullptr;
-    });
-    this->settingBtn->addGestureRecognizer(new brls::TapGestureRecognizer(this->settingBtn));
+    this->aniswitchBtn->addGestureRecognizer(new brls::TapGestureRecognizer(this->aniswitchBtn));
 
-    this->inboxBtn->registerClickAction([](brls::View* view) -> bool {
-        if (DialogHelper::checkLogin()) Intent::openInbox();
-        return true;
-    });
-
-    this->inboxBtn->getFocusEvent()->subscribe([this](bool value) {
-        SVGImage* image = dynamic_cast<SVGImage*>(this->inboxBtn->getChildren()[0]);
-        if (!image) return;
-        if (value) {
-            image->setImageFromSVGRes("svg/ico-inbox-activate.svg");
-        } else {
-            image->setImageFromSVGRes("svg/ico-inbox.svg");
-        }
-    });
-    this->inboxBtn->addGestureRecognizer(new brls::TapGestureRecognizer(this->inboxBtn));
+    brls::Application::giveFocus(this->aniswitchBtn);
 }

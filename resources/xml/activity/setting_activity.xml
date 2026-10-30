@@ -375,10 +375,6 @@
                                 marginBottom="0px"/>
 
                         <brls:RadioCell
-                                id="tools/aniswitch"
-                                title="AniSwitch 网络播放"/>
-
-                        <brls:RadioCell
                                 id="tools/dlna"
                                 title="@i18n/wiliwili/setting/tools/others/dlna"/>
 

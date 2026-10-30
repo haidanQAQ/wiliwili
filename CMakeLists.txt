@@ -88,12 +88,12 @@ set(VERSION_REVISION "0")
 if (NOT VERSION_BUILD)
     set(VERSION_BUILD "0")
 endif ()
-set(PROJECT_AUTHOR "xfangfang")
-set(PACKAGE_NAME cn.xfangfang.wiliwili)
+set(PROJECT_AUTHOR "AniSwitch")
+set(PACKAGE_NAME cn.aniswitch.player)
 set(VITA_TITLEID "WILIWILI0")
 set(PSN_TITLE_ID "WILI00000")
 set(VITA_VERSION "01.60")
-set(PROJECT_ICON ${CMAKE_CURRENT_SOURCE_DIR}/resources/icon/icon.jpg)
+set(PROJECT_ICON ${CMAKE_CURRENT_SOURCE_DIR}/resources/icon/aniswitch.jpg)
 set(PROJECT_RESOURCES ${CMAKE_CURRENT_SOURCE_DIR}/resources)
 set(APP_VERSION "${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_REVISION}")
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/cmake/")
@@ -313,7 +313,7 @@ elseif (PLATFORM_SWITCH)
     endif ()
     add_custom_target(${PROJECT_NAME}.nro
         DEPENDS ${PROJECT_NAME}
-        COMMAND ${NX_NACPTOOL_EXE} --create ${PROJECT_NAME} ${PROJECT_AUTHOR} ${APP_VERSION} ${PROJECT_NAME}.nacp
+        COMMAND ${NX_NACPTOOL_EXE} --create "AniSwitch" ${PROJECT_AUTHOR} ${APP_VERSION} ${PROJECT_NAME}.nacp
         COMMAND ${CMAKE_COMMAND} -E copy_directory ${PROJECT_RESOURCES} ${CMAKE_BINARY_DIR}/resources
         COMMAND ${CMAKE_COMMAND} -E remove -f ${BUILD_FONT_DIR}/*.txt ${BUILD_FONT_DIR}/switch_font.ttf
             ${BUILD_FONT_DIR}/keymap*.ttf

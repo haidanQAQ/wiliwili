@@ -14,6 +14,7 @@
 #include <nlohmann/json.hpp>
 
 #include "activity/aniswitch_player_activity.hpp"
+#include "activity/aniswitch_sources.hpp"
 #include "utils/aniswitch_util.hpp"
 #include "view/video_view.hpp"
 #include "view/mpv_core.hpp"
@@ -22,13 +23,39 @@
 using namespace brls::literals;
 
 
-AniSwitchPlayerActivity::AniSwitchPlayerActivity(std::vector<AniSwitchEpisode> list, size_t idx)
-    : episodes(std::move(list)), index(idx) {
-    aniswitchLog("== AniSwitchPlayerActivity ctor index=" + std::to_string(idx));
+AniSwitchPlayerActivity::AniSwitchPlayerActivity(std::vector<AniSwitchEpisode> list, size_t idx,
+                                                 std::string dir)
+    : episodes(std::move(list)), index(idx), dirPath(std::move(dir)) {
+    aniswitchLog("== AniSwitchPlayerActivity ctor index=" + std::to_string(idx) + " dir=" + this->dirPath);
 }
 
 AniSwitchPlayerActivity::~AniSwitchPlayerActivity() {
-    if (this->mpvSubscribed) MPV_E->unsubscribe(this->mpvEventSubscribeID);
+    aniswitchLog("== player dtor");
+    this->stopPlayback();
+}
+
+void AniSwitchPlayerActivity::stopPlayback() {
+    if (this->stopped) return;
+    this->stopped = true;
+    aniswitchLog("player: stopPlayback");
+
+    if (this->mpvSubscribed) {
+        MPV_E->unsubscribe(this->mpvEventSubscribeID);
+        this->mpvSubscribed = false;
+    }
+    DanmakuCore::instance().reset();
+    if (this->video) this->video->stop();
+}
+
+void AniSwitchPlayerActivity::willAppear(bool resetState) {
+    aniswitchLog("== player willAppear");
+    brls::Activity::willAppear(resetState);
+}
+
+void AniSwitchPlayerActivity::willDisappear(bool resetState) {
+    aniswitchLog("== player willDisappear");
+    this->stopPlayback();
+    brls::Activity::willDisappear(resetState);
 }
 
 void AniSwitchPlayerActivity::onContentAvailable() {
@@ -50,7 +77,20 @@ void AniSwitchPlayerActivity::onContentAvailable() {
     this->mpvSubscribed = true;
 
     this->playCurrent();
+
+    // B 键：先停掉 mpv 再退出，避免「退出后声音还在后台 + 其他视频播不出来」
+    this->video->registerAction(
+        "cancel", brls::ControllerButton::BUTTON_B,
+        [this](brls::View*) -> bool {
+            aniswitchLog("player: B pressed -> stop and pop");
+            this->stopPlayback();
+            brls::Application::popActivity(brls::TransitionAnimation::FADE);
+            return true;
+        },
+        true);
+
     brls::sync([this]() { brls::Application::giveFocus(this->video); });
+    aniswitchLog("== player onContentAvailable done");
 }
 
 void AniSwitchPlayerActivity::playCurrent() {
@@ -79,8 +119,13 @@ void AniSwitchPlayerActivity::playNext() {
 }
 
 void AniSwitchPlayerActivity::loadDanmaku(int ep) {
-    std::thread([this, ep]() {
-        const std::string url = std::string(ANISWITCH_GW_DEFAULT) + "/api/danmaku?ep=" + std::to_string(ep);
+    // 注意：Switch 上不能用 std::thread（主线程创建即 abort 2162-0004），一律走 brls::async
+    brls::async([this, ep]() {
+        const std::string name =
+            (this->index < this->episodes.size()) ? this->episodes[this->index].name : std::string();
+        const std::string url = aniswitch::gatewayBase() + "/api/danmaku?dir=" +
+                                aniswitchUrlEncode(this->dirPath) + "&name=" + aniswitchUrlEncode(name) +
+                                "&ep=" + std::to_string(ep);
         aniswitchLog("GET " + url);
 
         std::vector<DanmakuItem> data;
@@ -119,5 +164,5 @@ void AniSwitchPlayerActivity::loadDanmaku(int ep) {
             DanmakuCore::instance().reset();
             if (!data.empty()) DanmakuCore::instance().loadDanmakuData(data);
         });
-    }).detach();
+    });
 }

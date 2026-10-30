@@ -190,11 +190,6 @@ void SettingActivity::onContentAvailable() {
         return true;
     });
 
-    btnAniSwitch->registerClickAction([](...) -> bool {
-        Intent::openAniSwitch();
-        return true;
-    });
-
 #if defined(__SWITCH__) || defined(__PSV__) || defined(PS4)
     btnOpenConfig->title->setText("wiliwili/setting/tools/others/config_dir"_i18n);
 #endif

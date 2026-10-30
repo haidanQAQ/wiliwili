@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<brls:AppletFrame headerHidden="true" footerHidden="false">
+    <brls:Box width="100%" height="100%" axis="column">
+        <brls:Label id="browse/status"
+                    width="100%"
+                    marginTop="18"
+                    marginBottom="8"
+                    marginLeft="24"
+                    fontSize="22"
+                    text="正在读取目录 ..."/>
+        <RecyclingGrid id="browse/grid"
+                       grow="1"
+                       itemHeight="88"
+                       spanCount="2"
+                       paddingLeft="20"
+                       paddingRight="20"
+                       paddingTop="8"
+                       preFetchLine="2"
+                       wireframe="false"/>
+    </brls:Box>
+</brls:AppletFrame>

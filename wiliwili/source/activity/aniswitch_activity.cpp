@@ -1,232 +1,255 @@
 //
-// AniSwitch: OpenList/WebDAV 视频列表（数据来自 AniSwitch Gateway）
+// AniSwitch 首页：WebDAV 源列表
 //
+//   +（Switch 上的 + 键 = BUTTON_START）：新增源，四步输入 名称 / 地址 / 用户名 / 密码
+//   -（Switch 上的 - 键 = BUTTON_BACK） ：删除当前选中的源，二次确认
+//   A                                    ：进入该源
+//   B                                    ：返回 wiliwili 主界面
+//
+// 配置存放：sdmc:/config/wiliwili/aniswitch_sources.json
+//
+
 #include <cstdio>
 #include <string>
-#include <thread>
+#include <vector>
 
-#include <borealis/core/thread.hpp>
-#include <borealis/core/logger.hpp>
 #include <borealis/core/application.hpp>
-#include <borealis/core/view.hpp>
 #include <borealis/core/box.hpp>
-#include <borealis/views/label.hpp>
-
-#include <cpr/cpr.h>
-#include <nlohmann/json.hpp>
+#include <borealis/core/i18n.hpp>
+#include <borealis/views/dialog.hpp>
 
 #include "activity/aniswitch_activity.hpp"
+#include "activity/aniswitch_add_dialog.hpp"
+#include "utils/activity_helper.hpp"
 #include "utils/aniswitch_util.hpp"
-#include "activity/aniswitch_player_activity.hpp"
-#include "view/recycling_grid.hpp"
 
-using namespace brls::literals;
-
-namespace {
-
-brls::View* buildFallbackView(const std::string& message) {
-    auto* box = new brls::Box(brls::Axis::COLUMN);
-    box->setWidthPercentage(100);
-    box->setHeightPercentage(100);
-    box->setPadding(40, 40, 40, 40);
-
-    auto* label = new brls::Label();
-    label->setFontSize(22);
-    label->setWidthPercentage(100);
-    label->setText("AniSwitch 界面加载失败：\n" + message);
-    box->addView(label);
-    return box;
-}
-
-// 一次简单的连通性探测，用于定位「连不上」是哪一环
-std::string probeUrl(const std::string& url) {
-    try {
-        cpr::Response r = cpr::Get(cpr::Url{url}, cpr::Timeout{8000},
-                                   cpr::Header{{"User-Agent", "wiliwili-aniswitch"}});
-        return url + " -> " + std::to_string(r.status_code) + " " + r.error.message;
-    } catch (const std::exception& e) {
-        return url + " -> exception " + e.what();
-    } catch (...) { return url + " -> exception unknown"; }
-}
-}  // namespace
-
-AniSwitchCell::AniSwitchCell() {
+AniSwitchSourceCell::AniSwitchSourceCell() {
     this->setFocusable(true);
-    this->setAxis(brls::Axis::ROW);
-    this->setAlignItems(brls::AlignItems::CENTER);
-    this->setHeight(64);
-    this->setPadding(4, 12, 4, 12);
-    this->setCornerRadius(6);
+    this->setHeight(110.0f);
+    this->setWidthPercentage(100.0f);
+    this->setPadding(12, 18, 12, 18);
 
-    this->label = new brls::Label();
-    this->label->setFontSize(20);
-    this->label->setWidthPercentage(100);
-    this->label->setText("");
-    this->addView(this->label);
+    this->nameLabel = new brls::Label();
+    this->nameLabel->setFontSize(26);
+    this->nameLabel->setWidthPercentage(100.0f);
+    this->addView(this->nameLabel);
+
+    this->detailLabel = new brls::Label();
+    this->detailLabel->setFontSize(16);
+    this->detailLabel->setWidthPercentage(100.0f);
+    this->detailLabel->setMarginTop(6);
+    this->detailLabel->setTextColor(nvgRGB(160, 160, 160));
+    this->addView(this->detailLabel);
 }
 
-void AniSwitchCell::setText(const std::string& text) { this->label->setText(text); }
+void AniSwitchSourceCell::setSource(const AniSwitchSource& source, size_t index) {
+    this->index = index;
 
-void AniSwitchCell::prepareForReuse() { this->label->setText(""); }
+    std::string title = source.name;
+    if (source.builtin) title += "（内置）";
+    this->nameLabel->setText(title);
 
-void AniSwitchCell::cacheForReuse() {}
+    std::string detail = source.url;
+    if (!source.user.empty()) detail += "  ·  用户 " + source.user;
+    this->detailLabel->setText(detail);
+}
 
-RecyclingGridItem* AniSwitchDataSource::cellForRow(RecyclingGrid* recycler, size_t index) {
-    auto* cell = dynamic_cast<AniSwitchCell*>(recycler->dequeueReusableCell("AniSwitchCell"));
+void AniSwitchSourceCell::onFocusGained() {
+    RecyclingGridItem::onFocusGained();
+    if (this->focusCallback) this->focusCallback(this->index);
+}
 
+RecyclingGridItem* AniSwitchSourceDataSource::cellForRow(RecyclingGrid* recycler, size_t index) {
+    auto* cell = static_cast<AniSwitchSourceCell*>(recycler->dequeueReusableCell("AniSwitchSourceCell"));
     if (!cell) {
-        aniswitchLog("cellForRow: dequeue returned null or wrong type, index=" + std::to_string(index));
-        return nullptr;
+        cell = new AniSwitchSourceCell();
+        cell->setFocusCallback([this](size_t i) {
+            if (this->focusCallback) this->focusCallback(i);
+        });
     }
-    if (index >= this->episodes.size()) return cell;
-
-    const auto& e = this->episodes[index];
-    char head[32];
-    snprintf(head, sizeof(head), "EP%03d", e.ep);
-    cell->setText(std::string(head) + "    " + e.name);
+    if (index < this->sources.size()) cell->setSource(this->sources[index], index);
     return cell;
 }
 
-void AniSwitchDataSource::onItemSelected(RecyclingGrid* recycler, size_t index) {
-    if (index >= this->episodes.size()) return;
-    aniswitchLog("select ep index " + std::to_string(index) + " ep=" + std::to_string(this->episodes[index].ep));
-    auto* activity = new AniSwitchPlayerActivity(this->episodes, index);
-    brls::Application::pushActivity(activity, brls::TransitionAnimation::NONE);
+void AniSwitchSourceDataSource::onItemSelected(RecyclingGrid* recycler, size_t index) {
+    if (this->selectCallback) this->selectCallback(index);
 }
 
-AniSwitchActivity::AniSwitchActivity() { aniswitchLog("== AniSwitchActivity ctor"); }
+AniSwitchActivity::AniSwitchActivity() { aniswitchLog("== AniSwitchActivity ctor (sources)"); }
+
+AniSwitchActivity::~AniSwitchActivity() { aniswitchLog("== AniSwitchActivity dtor (sources)"); }
 
 brls::View* AniSwitchActivity::createContentView() {
-    aniswitchLog("== createContentView");
-    try {
-        brls::View* view = brls::View::createFromXMLResource("activity/aniswitch_activity.xml");
-        aniswitchLog(view ? "xml ok" : "xml returned null");
-        if (view) return view;
-    } catch (const std::exception& e) {
-        aniswitchLog(std::string("xml exception: ") + e.what());
-        return buildFallbackView(e.what());
-    } catch (...) {
-        aniswitchLog("xml exception: unknown");
-        return buildFallbackView("unknown exception while inflating xml");
-    }
-    return buildFallbackView("activity/aniswitch_activity.xml not found");
+    return brls::View::createFromXMLResource("activity/aniswitch_sources.xml");
+}
+
+void AniSwitchActivity::willAppear(bool resetState) {
+    brls::Activity::willAppear(resetState);
+    aniswitchLog("== sources willAppear");
+    if (this->grid) brls::Application::giveFocus(this->grid);
 }
 
 void AniSwitchActivity::onContentAvailable() {
-    aniswitchLog("== onContentAvailable");
     brls::Activity::onContentAvailable();
+    aniswitchLog("== sources onContentAvailable");
 
     this->status = dynamic_cast<brls::Label*>(this->getView("aniswitch/status"));
     this->grid   = dynamic_cast<RecyclingGrid*>(this->getView("aniswitch/grid"));
-    aniswitchLog(std::string("bind status=") + (this->status ? "ok" : "null") + " grid=" +
-                 (this->grid ? "ok" : "null"));
-
-    this->registerAction("返回", brls::BUTTON_B, [](brls::View*) {
-        brls::Application::popActivity();
-        return true;
-    });
-    this->registerAction("刷新", brls::BUTTON_Y, [this](brls::View*) {
-        aniswitchLog("action: refresh");
-        this->loadEpisodes();
-        return true;
-    });
 
     if (!this->grid) {
-        this->showMessage("列表组件 aniswitch/grid 未找到");
+        aniswitchLog("sources: grid null");
         return;
     }
 
-    try {
-        this->grid->registerCell("AniSwitchCell", []() { return new AniSwitchCell(); });
-        this->grid->showSkeleton();
-        aniswitchLog("grid ready");
-    } catch (const std::exception& e) {
-        aniswitchLog(std::string("grid exception: ") + e.what());
-        this->showMessage(e.what());
-        return;
-    }
+    this->grid->registerCell("AniSwitchSourceCell", []() { return new AniSwitchSourceCell(); });
+    this->grid->showSkeleton();
+    this->grid->setRefreshAction([this]() { this->reload(); });
 
-    this->showMessage("正在连接 AniSwitch Gateway ...");
-    this->loadEpisodes();
+    // + 键：新增 WebDAV 源
+    this->registerAction(
+        "添加", brls::ControllerButton::BUTTON_START,
+        [this](brls::View*) -> bool {
+            this->addSourceFlow();
+            return true;
+        },
+        false, false, brls::SOUND_CLICK);
+
+    // - 键：删除选中的源
+    this->registerAction(
+        "删除", brls::ControllerButton::BUTTON_BACK,
+        [this](brls::View*) -> bool {
+            this->deleteSelectedSource();
+            return true;
+        },
+        false, false, brls::SOUND_CLICK);
+
+    // X 键：编辑选中的源
+    this->registerAction(
+        "编辑", brls::ControllerButton::BUTTON_X,
+        [this](brls::View*) -> bool {
+            this->editSelectedSource();
+            return true;
+        },
+        false, false, brls::SOUND_CLICK);
+
+    this->registerAction(
+        "返回", brls::ControllerButton::BUTTON_B,
+        [](brls::View*) -> bool {
+            brls::Application::popActivity(brls::TransitionAnimation::FADE);
+            return true;
+        },
+        true);
+
+    this->reload();
+}
+
+void AniSwitchActivity::reload() {
+    this->sources  = aniswitch::loadSources();
+    this->selected = 0;
+
+    auto* ds = new AniSwitchSourceDataSource(this->sources);
+    ds->setSelectCallback([this](size_t index) {
+        this->selected = index;
+        this->openSelectedSource();
+    });
+    ds->setFocusCallback([this](size_t index) { this->selected = index; });
+
+    this->grid->setDataSource(ds);
+    this->grid->notifyDataChanged();
+    brls::Application::giveFocus(this->grid);
+
+    char tip[200];
+    snprintf(tip, sizeof(tip), "共 %zu 个源 · + 添加 · − 删除 · X 编辑 · A 进入",
+             this->sources.size());
+    this->showMessage(tip);
+    aniswitchLog("sources: grid filled, count=" + std::to_string(this->sources.size()));
 }
 
 void AniSwitchActivity::showMessage(const std::string& text) {
-    aniswitchLog("msg: " + text);
     if (this->status) this->status->setText(text);
 }
 
-void AniSwitchActivity::loadEpisodes() {
-    aniswitchLog("loadEpisodes: spawn thread");
-    std::thread([this]() {
-        const std::string base = ANISWITCH_GW_DEFAULT;
-        const std::string url  = base + "/api/episodes";
-        aniswitchLog("thread: GET " + url);
+void AniSwitchActivity::openSelectedSource() {
+    if (this->selected >= this->sources.size()) return;
+    const AniSwitchSource source = this->sources[this->selected];
+    aniswitchLog("sources: open " + source.name + " url=" + source.url);
 
-        std::vector<AniSwitchEpisode> list;
-        std::string error;
+    if (source.builtin) {
+        Intent::openAniSwitchList();
+        return;
+    }
 
-        try {
-            cpr::Response r = cpr::Get(cpr::Url{url}, cpr::Timeout{30000},
-                                       cpr::Header{{"User-Agent", "wiliwili-aniswitch"}});
-            aniswitchLog("thread: status=" + std::to_string(r.status_code) + " err=" + r.error.message +
-                         " bytes=" + std::to_string(r.text.size()));
+    // WebDAV 源：进入目录浏览（PROPFIND）
+    Intent::openAniSwitchBrowse(source, "");
+}
 
-            if (r.status_code != 200) {
-                error = "Gateway 返回 " + std::to_string(r.status_code);
-                if (!r.error.message.empty()) error += " " + r.error.message;
-            } else {
-                auto j = nlohmann::json::parse(r.text);
-                if (j.value("code", -1) != 0) {
-                    error = "Gateway 错误: " + j.value("msg", std::string("unknown"));
-                } else {
-                    for (auto& item : j["episodes"]) {
-                        AniSwitchEpisode e;
-                        e.ep   = item.value("ep", 0);
-                        e.name = item.value("name", std::string(""));
-                        e.size = item.value("size", 0LL);
-                        e.url  = item.value("url", std::string(""));
-                        if (!e.url.empty()) list.push_back(std::move(e));
-                    }
-                }
-            }
-        } catch (const std::exception& e) {
-            error = std::string("请求失败: ") + e.what();
-        } catch (...) { error = "请求失败: unknown"; }
+size_t AniSwitchActivity::focusedSourceIndex() const {
+    // 光标停在哪个格子上，就以那个格子的 index 为准：
+    // RecyclingGrid 复用单元格时光标的 onFocusGained 不一定再次触发，
+    // 只靠 this->selected 会出现「光标在 b、删掉的是 a」。
+    if (auto* item = dynamic_cast<RecyclingGridItem*>(brls::Application::getCurrentFocus())) {
+        if (item->getIndex() < this->sources.size()) return item->getIndex();
+    }
+    return this->selected < this->sources.size() ? this->selected : 0;
+}
 
-        aniswitchLog("thread: loaded " + std::to_string(list.size()) + " eps, error=" + error);
+void AniSwitchActivity::deleteSelectedSource() {
+    if (this->sources.empty()) return;
 
-        if (!error.empty()) {
-            // 连不上时做两次对照探测，帮助我们判断是端口问题还是整机没网
-            std::string p1 = probeUrl(base + "/health");
-            aniswitchLog("probe1: " + p1);
-            std::string p2 = probeUrl("http://192.168.31.251:5244/");
-            aniswitchLog("probe2: " + p2);
-            error += "\n" + p1 + "\n" + p2;
+    const size_t target = this->focusedSourceIndex();
+    if (target >= this->sources.size()) return;
+    const AniSwitchSource source = this->sources[target];
+    aniswitchLog("sources: delete target=" + std::to_string(target) + " name=" + source.name);
+
+    if (source.builtin) {
+        brls::Dialog* dialog = new brls::Dialog("内置网关源不可删除");
+        dialog->addButton("确定", []() {});
+        dialog->open();
+        return;
+    }
+
+    brls::Dialog* dialog = new brls::Dialog("确定删除这个 WebDAV 源吗？\n\n" + source.name + "\n" + source.url);
+    dialog->addButton("取消", []() {});
+    dialog->addButton("确定", [this, source]() {
+        std::vector<AniSwitchSource> next;
+        for (auto& s : this->sources) {
+            if (s.url == source.url && s.name == source.name) continue;
+            next.push_back(s);
         }
+        aniswitch::saveSources(next);
+        aniswitchLog("sources: deleted " + source.name);
+        this->reload();
+    });
+    dialog->open();
+}
 
-        aniswitchLog("thread: posting to main loop");
-        brls::sync([this, list, error]() {
-            aniswitchLog("sync enter, err_empty=" + std::to_string(error.empty()) +
-                         " list=" + std::to_string(list.size()));
-            try {
-            if (!error.empty()) {
-                this->showMessage(error);
-                aniswitchLog("sync: setError next");
-                if (this->grid) this->grid->setError(error);
-                aniswitchLog("sync: setError done");
-                return;
-            }
-            this->showMessage("共 " + std::to_string(list.size()) + " 集");
-            if (!this->grid) return;
-            aniswitchLog("sync: setDataSource next");
-            this->grid->setDataSource(new AniSwitchDataSource(list));
-            aniswitchLog("sync: notifyDataChanged next");
-            this->grid->notifyDataChanged();
-            aniswitchLog("sync: grid data set");
-            } catch (const std::exception& e) {
-                aniswitchLog(std::string("sync exception: ") + e.what());
-            } catch (...) { aniswitchLog("sync exception: unknown"); }
-        });
-        aniswitchLog("thread: posted");
-    }).detach();
+
+void AniSwitchActivity::addSourceFlow() {
+    aniswitchShowSourceDialog("添加 WebDAV", AniSwitchSource{},
+                              [this](const AniSwitchSource& source) {
+                                  std::vector<AniSwitchSource> next = this->sources;
+                                  next.push_back(source);
+                                  aniswitch::saveSources(next);
+                                  aniswitchLog("sources: added " + source.name + " " + source.url);
+                                  this->reload();
+                              });
+}
+
+void AniSwitchActivity::editSelectedSource() {
+    if (this->sources.empty()) return;
+
+    const size_t target = this->focusedSourceIndex();
+    if (target >= this->sources.size()) return;
+
+    const AniSwitchSource current = this->sources[target];
+    aniswitchLog("sources: edit target=" + std::to_string(target) + " name=" + current.name);
+
+    aniswitchShowSourceDialog("编辑 WebDAV", current, [this, target](const AniSwitchSource& source) {
+        std::vector<AniSwitchSource> next = this->sources;
+        if (target >= next.size()) return;
+        next[target] = source;
+        aniswitch::saveSources(next);
+        aniswitchLog("sources: edited target=" + std::to_string(target) + " -> " + source.url);
+        this->reload();
+    });
 }
